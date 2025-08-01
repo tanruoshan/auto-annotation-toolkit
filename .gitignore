@@ -1,0 +1,159 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PIPFILE.lock
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# PyTorch Models (large files)
+*.pt
+*.pth
+*.onnx
+*.pb
+*.h5
+*.tflite
+
+# Model checkpoints and weights
+checkpoints/
+weights/
+models/
+model/
+
+# Dataset and Image Files (usually large)
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.tif
+*.webp
+*.gif
+*.svg
+
+# Annotation Files (generated outputs)
+annotations/
+output/
+results/
+reports/
+*_reports/
+*_annotations/
+
+# Data Folders
+data/
+dataset/
+datasets/
+images/
+raw_data/
+processed_data/
+
+# Logs and Temporary Files
+*.log
+logs/
+temp/
+tmp/
+.tmp/
+
+# Configuration Files with Sensitive Data
+config/local_config.ini
+.env
+.env.local
+.env.*.local
+
+# Testing and Coverage
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation Build
+docs/_build/
+site/
+
+# Package managers
+pip-log.txt
+pip-delete-this-directory.txt
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# Project-specific
+verification_output.txt
+demo_reports.py
+implementation_summary.py
+verify_reports.py
+*_demo.py
+*_test_output.*
+
+# Large files that shouldn't be in git
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup
+*.orig
+*~
+
+# Cache directories
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json

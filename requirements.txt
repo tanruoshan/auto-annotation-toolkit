@@ -1,0 +1,24 @@
+# Requirements for Auto Annotation Toolkit
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+numpy
+opencv-python
+
+# For PyTorch models (.pt files)
+torch
+ultralytics
+
+# For ONNX models (.onnx files)  
+onnxruntime
+onnx
+
+# For Intel OpenVINO models (optional)
+# openvino>=2022.1.0
+
+# Utilities
+pillow
+pathlib2
+
+# For visualization (optional)
+matplotlib
