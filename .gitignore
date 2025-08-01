@@ -73,7 +73,6 @@ annotations/
 output/
 results/
 reports/
-*_reports/
 *_annotations/
 
 # Data Folders
