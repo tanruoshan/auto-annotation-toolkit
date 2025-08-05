@@ -50,12 +50,28 @@ def load_config(config_file: str) -> dict:
     if 'PATHS' in config and 'image_extensions' in config['PATHS']:
         extensions = [ext.strip() for ext in config['PATHS']['image_extensions'].split(',')]
     
+    # Parse sliding window configuration
+    sliding_window_config = {}
+    if 'SLIDING_WINDOW' in config:
+        sliding_window_config = {
+            'enable_sliding_window': config.getboolean('SLIDING_WINDOW', 'enable_sliding_window', fallback=False),
+            'slice_height': config.getint('SLIDING_WINDOW', 'slice_height', fallback=640),
+            'slice_width': config.getint('SLIDING_WINDOW', 'slice_width', fallback=640),
+            'overlap_height_ratio': config.getfloat('SLIDING_WINDOW', 'overlap_height_ratio', fallback=0.2),
+            'overlap_width_ratio': config.getfloat('SLIDING_WINDOW', 'overlap_width_ratio', fallback=0.2),
+            'min_image_size_for_slicing': config.getint('SLIDING_WINDOW', 'min_image_size_for_slicing', fallback=1024),
+            'enable_padding_for_small_images': config.getboolean('SLIDING_WINDOW', 'enable_padding_for_small_images', fallback=False),
+            'padding_color': config.get('SLIDING_WINDOW', 'padding_color', fallback='114,114,114'),
+            'postprocess_match_threshold': config.getfloat('SLIDING_WINDOW', 'postprocess_match_threshold', fallback=0.5),
+            'postprocess_match_metric': config.get('SLIDING_WINDOW', 'postprocess_match_metric', fallback='IOS'),
+            'postprocess_class_agnostic': config.getboolean('SLIDING_WINDOW', 'postprocess_class_agnostic', fallback=False)
+        }
+    
     return {
         'model_path': config.get('MODEL', 'model_path', fallback='model.pt'),
         'confidence_threshold': config.getfloat('MODEL', 'confidence_threshold', fallback=0.5),
         'input_size': config.get('MODEL', 'input_size', fallback='auto'),
-        'input_folder': config.get('PATHS', 'input_folder', fallback='images'),
-        'output_folder': config.get('PATHS', 'output_folder', fallback='annotations'),
+        'annotation_folder': config.get('PATHS', 'annotation_folder', fallback='images'),
         'report_folder': config.get('PATHS', 'report_folder', fallback=''),
         'image_extensions': extensions,
         'class_names': class_names,
@@ -64,7 +80,8 @@ def load_config(config_file: str) -> dict:
         'include_confidence': config.getboolean('ANNOTATION', 'include_confidence', fallback=True),
         'generate_reports': config.getboolean('REPORTS', 'generate_reports', fallback=False),
         'show_confidence_in_reports': config.getboolean('REPORTS', 'show_confidence_in_reports', fallback=True),
-        'report_image_format': config.get('REPORTS', 'report_image_format', fallback='jpg')
+        'report_image_format': config.get('REPORTS', 'report_image_format', fallback='jpg'),
+        'sliding_window_config': sliding_window_config
     }
 
 def main():
@@ -74,16 +91,24 @@ def main():
                        help='Path to configuration file (default: config/annotation_config.ini)')
     parser.add_argument('--model', '-m', 
                        help='Path to model file (.pt or .onnx) - overrides config')
-    parser.add_argument('--input', '-i',
-                       help='Input folder with images - overrides config')
-    parser.add_argument('--output', '-o',
-                       help='Output folder for annotations - overrides config')
+    parser.add_argument('--folder', '-f',
+                       help='Folder with images to annotate (annotations generated in same folder) - overrides config')
     parser.add_argument('--confidence', '-conf', type=float,
                        help='Confidence threshold (0.0-1.0) - overrides config')
     parser.add_argument('--report-folder', '-r',
                        help='Output folder for visual report images - overrides config')
     parser.add_argument('--no-reports', action='store_true',
                        help='Disable report generation even if enabled in config')
+    parser.add_argument('--enable-sliding-window', action='store_true',
+                       help='Enable sliding window inference for large images')
+    parser.add_argument('--disable-sliding-window', action='store_true',
+                       help='Disable sliding window inference even if enabled in config')
+    parser.add_argument('--enable-padding', action='store_true',
+                       help='Enable padding for small images to use sliding window on any size')
+    parser.add_argument('--slice-size', type=int, default=640,
+                       help='Slice size for sliding window (default: 640)')
+    parser.add_argument('--padding-color', type=str, default='114,114,114',
+                       help='Padding color in R,G,B format (default: 114,114,114)')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be processed without actually processing')
     parser.add_argument('--verify-model', action='store_true',
@@ -103,10 +128,8 @@ def main():
     # Override config with command line arguments
     if args.model:
         config['model_path'] = args.model
-    if args.input:
-        config['input_folder'] = args.input
-    if args.output:
-        config['output_folder'] = args.output
+    if args.folder:
+        config['annotation_folder'] = args.folder
     if args.confidence:
         config['confidence_threshold'] = args.confidence
     if args.report_folder:
@@ -114,26 +137,41 @@ def main():
         config['generate_reports'] = True  # Enable reports if folder is specified
     if args.no_reports:
         config['generate_reports'] = False
+    if args.enable_sliding_window:
+        config['sliding_window_config']['enable_sliding_window'] = True
+        config['sliding_window_config']['slice_height'] = args.slice_size
+        config['sliding_window_config']['slice_width'] = args.slice_size
+    if args.disable_sliding_window:
+        config['sliding_window_config']['enable_sliding_window'] = False
+    if args.enable_padding:
+        config['sliding_window_config']['enable_padding_for_small_images'] = True
+        config['sliding_window_config']['enable_sliding_window'] = True  # Enable sliding window if padding is enabled
+    if args.padding_color:
+        config['sliding_window_config']['padding_color'] = args.padding_color
     
     # Validate inputs
     if not os.path.exists(config['model_path']):
         print(f"Error: Model file not found: {config['model_path']}")
         sys.exit(1)
     
-    if not os.path.exists(config['input_folder']):
-        print(f"Error: Input folder not found: {config['input_folder']}")
+    if not os.path.exists(config['annotation_folder']):
+        print(f"Error: Annotation folder not found: {config['annotation_folder']}")
         sys.exit(1)
     
     # Count images to process
-    input_path = Path(config['input_folder'])
+    annotation_path = Path(config['annotation_folder'])
     image_files = []
     for ext in config['image_extensions']:
-        image_files.extend(input_path.glob(f"*{ext}"))
-        image_files.extend(input_path.glob(f"*{ext.upper()}"))
+        image_files.extend(annotation_path.glob(f"*{ext}"))
+        image_files.extend(annotation_path.glob(f"*{ext.upper()}"))
     
     # Initialize generator for model verification
     try:
-        generator = AutoAnnotationGenerator(config['model_path'], config['confidence_threshold'])
+        generator = AutoAnnotationGenerator(
+            config['model_path'], 
+            config['confidence_threshold'],
+            sliding_window_config=config['sliding_window_config']
+        )
         generator.set_class_names(config['class_names'])
     except Exception as e:
         print(f"Error initializing model: {e}")
@@ -158,8 +196,7 @@ def main():
     
     print(f"Configuration:")
     print(f"  Model: {config['model_path']}")
-    print(f"  Input: {config['input_folder']}")
-    print(f"  Output: {config['output_folder']}")
+    print(f"  Annotation Folder: {config['annotation_folder']}")
     print(f"  Confidence: {config['confidence_threshold']}")
     print(f"  Images found: {len(image_files)}")
     print(f"  Classes: {len(config['class_names'])}")
@@ -167,6 +204,10 @@ def main():
         print(f"  Reports: {config['report_folder']}")
     else:
         print(f"  Reports: Disabled")
+    if config['sliding_window_config'].get('enable_sliding_window', False):
+        print(f"  Sliding Window: Enabled ({config['sliding_window_config']['slice_width']}x{config['sliding_window_config']['slice_height']})")
+    else:
+        print(f"  Sliding Window: Disabled")
     
     if args.dry_run:
         print("Dry-run mode - showing first 10 files that would be processed:")
@@ -194,8 +235,8 @@ def main():
         if config['class_names']:
             print(f"Using custom class names: {list(config['class_names'].values())}")
         
-        # Create output directory
-        os.makedirs(config['output_folder'], exist_ok=True)
+        # Create annotation directory (usually already exists)
+        os.makedirs(config['annotation_folder'], exist_ok=True)
         
         # Create report directory if needed
         if config['generate_reports'] and config['report_folder']:
@@ -205,19 +246,19 @@ def main():
         # Process images
         print(f"\nProcessing images...")
         generator.process_images(
-            config['input_folder'],
-            config['output_folder'],
+            config['annotation_folder'],
+            config['annotation_folder'],  # Same folder for input and output
             config['image_extensions'],
             report_folder=config['report_folder'] if config['generate_reports'] else None,
             generate_reports=config['generate_reports']
         )
         
         print(f"\n✅ Auto-annotation completed!")
-        print(f"📁 Results saved to: {config['output_folder']}")
+        print(f"📁 Results saved to: {config['annotation_folder']}")
         
         # Count generated annotations
-        output_path = Path(config['output_folder'])
-        json_files = list(output_path.glob("*.json"))
+        annotation_path = Path(config['annotation_folder'])
+        json_files = list(annotation_path.glob("*.json"))
         print(f"📄 Generated {len(json_files)} annotation files")
         
         # Count generated reports if enabled

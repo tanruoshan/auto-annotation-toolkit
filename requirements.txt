@@ -9,6 +9,9 @@ opencv-python
 torch
 ultralytics
 
+# For sliding window inference
+sahi
+
 # For ONNX models (.onnx files)  
 onnxruntime
 onnx

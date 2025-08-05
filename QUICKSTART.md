@@ -17,9 +17,8 @@ Edit `config/annotation_config.ini`:
 model_path = ../model/gn24_deployment/best.pt
 
 [PATHS]
-# Update with your image folder
-input_folder = ../images_GN24/CLAHE
-output_folder = ./my_annotations
+# Update with your image folder (annotations will be generated in same folder)
+annotation_folder = ../images_GN24/CLAHE
 report_folder = ./my_reports
 
 [CLASSES]
@@ -49,8 +48,7 @@ python annotate_dataset.py
 ```bash
 python annotate_dataset.py \
     --model ../model/best.pt \
-    --input ../my_images/ \
-    --output ./annotations/ \
+    --folder ../my_images/ \
     --report-folder ./reports/ \
     --confidence 0.6
 ```
@@ -59,18 +57,23 @@ python annotate_dataset.py \
 ```bash
 python annotate_dataset.py \
     --model ../model/classifier.onnx \
-    --input ../test_images/ \
-    --output ./class_annotations/
+    --folder ../test_images/
 ```
 
-### Case 3: Multiple Folders
-Run the tool multiple times with different input folders, or use the batch example in `examples/annotation_examples.py`.
+### Case 3: Sliding Window with Padding
+```bash
+python annotate_dataset.py \
+    --model ../model/best.pt \
+    --folder ../high_res_images/ \
+    --enable-sliding-window \
+    --enable-padding
+```
 
 ## 📊 Check Your Results
 
 After processing, you'll find:
-- **JSON files**: One per image in your output folder (LabelMe annotations)
-- **Report images**: Visual reports with bounding boxes (if enabled)
+- **JSON files**: One per image in your annotation folder (LabelMe annotations)
+- **Report images**: Visual reports with bounding boxes (if enabled in report folder)
 - **Summary**: Printed to console showing processed count
 - **Logs**: Real-time progress during processing
 
